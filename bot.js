@@ -8,6 +8,7 @@ const bot = new discord.Client();
   }*/
 const config = require('./config.json');
 const Danbooru = require('danbooru');
+const schedule = require('node-schedule');
 
 /*
   testing database
@@ -38,8 +39,13 @@ bot.on('message', function(msg){
             addUserToList(command[1], msg.author);
             break;
         case "$test":
-            //getArtFromTag("senjougahara_hitagi");
-            var message = createMessageForTag(command[1]);
+            addTagToDB("hitagi", msg.author);
+            addTagToDB("asuna", msg.author);
+            addTagToDB("ddd", msg.author);
+
+            addUserToList("hitagi", msg.author);
+            addUserToList("asuna", msg.author);
+            var message = createMessageForTag("hitagi");
             msg.channel.send(message);
         }
     }
@@ -47,15 +53,40 @@ bot.on('message', function(msg){
 
 bot.login(config.token);
 
-/*creates a message for the given tag (mentions users from db)*/
+/*
+  ==SCHEDULE==
+  Every day at noon send each daily art seperated by 20 seconds.
+*/
+schedule.scheduleJob({hour: 12, minute: 00}, function(){
+    for(var i=0; i<db.length; i++){
+        (function (index){ // closure to stop the loop completing
+            setTimeout(function(){
+                var msg = createMessageForTag(db[index].tag);
+                if(db[index].users.length > 0)
+                    bot.channels.find('name', config.channel).send(msg);
+            }, i * 20000); // every 20 seconds execute the codeblock;
+        })(i);
+    }
+});
+
+
+
+/*
+  ==MESSAGE CREATION=
+  creates a message for the given tag (mentions users from db)
+*/
 function createMessageForTag(tag){
-    var message = "Daily " + tag.split('_')[0] + " ";
     var users = db.find(item => item.tag === tag).users;
+    if(users.length < 1) return; // make sure there are users
+    var message = "Daily " + tag.split('_')[0] + " ";
 
     for(var i=0; i<users.length; i++){
         message += "<@" + users[i] + "> ";
     }
+    message += "\n"; // add newline to seperate users from image
     
+    
+    console.log(message);
     return message;
     
 }
