@@ -1,10 +1,13 @@
 const readline = require('readline');
 const discord = require('discord.js');
 const bot = new discord.Client();
+/*{
+    "token" : "botTokenFromDiscord",
+    "owner" : "ownerOfBotsUserID",
+    "channel" : "nameOfChannel"
+  }*/
 const config = require('./config.json');
-//const Danbooru = require('danbooru');
-
-const danb = require('./danb.js');
+const Danbooru = require('danbooru');
 
 /*
   testing database
@@ -25,7 +28,7 @@ bot.on('ready', function(){
 });
 
 bot.on('message', function(msg){
-    if(msg.content.startsWith("$")){
+    if(msg.content.startsWith("$") && msg.channel.name == config.channel){
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
         case "$add":
@@ -35,13 +38,27 @@ bot.on('message', function(msg){
             addUserToList(command[1], msg.author);
             break;
         case "$test":
-            danb("senjougahara_hitagi");
+            //getArtFromTag("senjougahara_hitagi");
+            var message = createMessageForTag(command[1]);
+            msg.channel.send(message);
         }
     }
 });
 
 bot.login(config.token);
 
+/*creates a message for the given tag (mentions users from db)*/
+function createMessageForTag(tag){
+    var message = "Daily " + tag.split('_')[0] + " ";
+    var users = db.find(item => item.tag === tag).users;
+
+    for(var i=0; i<users.length; i++){
+        message += "<@" + users[i] + "> ";
+    }
+    
+    return message;
+    
+}
 
 /*
   == DATABASE ==
@@ -55,7 +72,6 @@ bot.login(config.token);
   - [F39019019239, 5C9028045203] // assume these are MD5 hashes of files
   - [029349023490] // assume this is a userID
 */
-
 
 /*
   Add a given tag to the subscribable list
@@ -87,3 +103,10 @@ function addUserToList(tag, user){
 function tagInDB(tag){
     return false; // returns false for now. TODO: implement properly
 }
+
+// check if the user is already subscribed to a given tag
+function userSubscribed(tag, user){
+    return false;
+}
+
+/*==DANBOORU FUNCTIONS==*/
