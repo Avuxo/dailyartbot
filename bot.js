@@ -9,12 +9,15 @@ const bot = new discord.Client();
 const config = require('./config.json');
 const Danbooru = require('danbooru');
 const schedule = require('node-schedule');
+var cooldown = require('./cooldown.js');
 
 /*
   testing database
   exists in memory
 */
 var db = [];
+
+var booru = new Danbooru.Safebooru();
 
 /*setup readline*/
 const rl = readline.createInterface({
@@ -37,6 +40,10 @@ bot.on('message', function(msg){
             break;
         case "$sub":
             addUserToList(command[1], msg.author);
+            break;
+        case "$tag": // getUsersForTag()
+            var message = cooldown(getUsersForTag(command[1]), 10000);
+            msg.channel.send(message);
             break;
         case "$test":
             addTagToDB("hitagi", msg.author);
@@ -63,7 +70,7 @@ schedule.scheduleJob({hour: 12, minute: 00}, function(){
             setTimeout(function(){
                 var msg = createMessageForTag(db[index].tag);
                 if(db[index].users.length > 0)
-                    bot.channels.find('name', config.channel).send(msg);
+                    bot.channels.find('name', config.channel).send(msg, new Discord.Attachment());
             }, i * 20000); // every 20 seconds execute the codeblock;
         })(i);
     }
@@ -76,12 +83,20 @@ schedule.scheduleJob({hour: 12, minute: 00}, function(){
   creates a message for the given tag (mentions users from db)
 */
 function createMessageForTag(tag){
-    var users = db.find(item => item.tag === tag).users;
-    if(users.length < 1) return; // make sure there are users
-    var message = "Daily " + tag.split('_')[0] + " ";
-
+    var tags = db.find(item => item.tag === tag); // get user list
+    try{
+        var users = tags.users;
+    }catch(e){
+        console.log(e);
+        return "Tag does not exist : /";
+    }
+    if(users.length < 1){ // make sure there are users
+        return "There are no users subscribed : /";
+    }
+    var message = "Daily " + tag.split('_')[0] + " "; // get only first name in tag
+    
     for(var i=0; i<users.length; i++){
-        message += "<@" + users[i] + "> ";
+        message += "<@" + users[i] + "> "; // add the tags for users
     }
     message += "\n"; // add newline to seperate users from image
     
@@ -126,6 +141,33 @@ function addUserToList(tag, user){
     }
 }
 
+/*
+  for the $tag command
+*/
+function getUsersForTag(tag){
+    try{
+        var users = db.find(item => item.tag === tag).users; // get the tag list
+    } catch (e){
+        console.log(e);
+        return "No users subscribed : /";
+    }
+
+    if(users == undefined){ 
+        console.log("No users subscribed : /");
+        return "No users subscribed : /";
+    }
+
+    // capitalize the name of the tag
+    var message = tag.charAt (0).toUpperCase() + tag.slice(1) + "\n";
+    if(users.length < 1) return; // make sure there are users subscribed
+
+    for(var i=0; i<users.length; i++){
+        message += "<@" + users[i] + "> "; // tag every user in the list
+    }
+    
+    return message;
+}
+
 /*==CHECKING FUNCTIONS==*/
 /*
   returns true if tag is in database of tags added
@@ -141,3 +183,14 @@ function userSubscribed(tag, user){
 }
 
 /*==DANBOORU FUNCTIONS==*/
+
+function getPost(tag){
+    booru.posts({
+        limit: 1,
+        tags: tag,
+        random: true
+    }).then(async posts => {
+        return posts[0];
+    });
+}
+
