@@ -9,13 +9,14 @@ const bot = new discord.Client();
 const config = require('./config.json');
 const Danbooru = require('danbooru');
 const schedule = require('node-schedule');
-var cooldown = require('./cooldown.js');
+const jsonfile = require('jsonfile');
 
 /*
   testing database
   exists in memory
 */
 var db = [];
+var cooldowns = [];
 
 var booru = new Danbooru.Safebooru();
 
@@ -35,47 +36,31 @@ bot.on('message', function(msg){
     if(msg.content.startsWith("$") && msg.channel.name == config.channel){
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
-        case "$add":
+        case "$add": // add a tag
             addTagToDB(command[1], msg.author);
             break;
-        case "$sub":
-            addUserToList(command[1], msg.author);
+        case "$sub": // subscribe to a tag
+            cooldown(function(){
+                addUserToList(command[1], msg.author);
+            }, 300, "commandSub");
             break;
         case "$tag": // getUsersForTag()
-            var message = cooldown(getUsersForTag(command[1]), 10000);
-            msg.channel.send(message);
+            var tags = command.slice(1);
+            cooldown(function(){
+                if(tags.length < 3){ // only 3 tags lole (this is done to try to ensure that the message isn't >2000 characters)
+                    for(var tag in tags){
+                        var message = getUsersForTag(tag);
+                        msg.channel.send(message);
+                    }
+                }
+            }, 1000, "commandTag");
+            
             break;
-        case "$test":
-            addTagToDB("hitagi", msg.author);
-            addTagToDB("asuna", msg.author);
-            addTagToDB("ddd", msg.author);
-
-            addUserToList("hitagi", msg.author);
-            addUserToList("asuna", msg.author);
-            var message = createMessageForTag("hitagi");
-            msg.channel.send(message);
         }
     }
 });
 
-bot.login(config.token);
-
-/*
-  ==SCHEDULE==
-  Every day at noon send each daily art seperated by 20 seconds.
-*/
-schedule.scheduleJob({hour: 12, minute: 00}, function(){
-    for(var i=0; i<db.length; i++){
-        (function (index){ // closure to stop the loop completing
-            setTimeout(function(){
-                var msg = createMessageForTag(db[index].tag);
-                if(db[index].users.length > 0)
-                    bot.channels.find('name', config.channel).send(msg, new Discord.Attachment());
-            }, i * 20000); // every 20 seconds execute the codeblock;
-        })(i);
-    }
-});
-
+//bot.login(config.token);
 
 
 /*
@@ -127,7 +112,38 @@ function createMessageForTag(tag){
 function addTagToDB(tag, user){
     if(user.id == config.owner){ // TODO: checking to see if the tag exists
         db.push({"tag":tag, "hashes":[],"users":[]});
+    } else {
+        console.log("User is not authenticated for this action")
     }
+}
+
+/*
+  RL test.
+  Only to be called from readline as a test (userIDs are random).
+*/
+function test(){
+    addTagToDB("hitagi", 2);
+    addTagToDB("asuna", 2);
+    addTagToDB("emilia", 2);
+    addTagToDB("Togame", 2);
+
+    for(var i=0; i<12; i++){
+        addUserToList("hitagi", {id: "98109283019283" + i});
+        addUserToList("asuna", {id: "98109283019283" + i});
+        addUserToList("emilia", {id: "98109283019283" + i});
+        addUserToList("Togame", {id:"98109283019283" + i});
+    }
+
+
+    var tags = ["hitagi", "asuna", "Togame"];
+    cooldown(function(){
+        for(var i=0; i<3; i++){
+            var message = getUsersForTag(tags[i]);
+            //msg.channel.send(message);
+            console.log(message);
+        }
+    }, 2000, "test");
+   
 }
 
 /*
@@ -135,11 +151,19 @@ function addTagToDB(tag, user){
 */
 function addUserToList(tag, user){
     try{
-        db.find(item => item.tag === tag).users.push(user.id);
+        if(db.find(item => item.tag === tag).users.indexOf(user) > -1)
+            db.find(item => item.tag === tag).users.push(user.id);
     }catch(exception){
         console.log(exception);
     }
 }
+/*
+  Write the database to a file (save)
+  path for main DB: db/db.json
+  path for backup DB: db/backup.json
+*/
+function writeDBToFile(path){
+    jsonfile.writeFile(path, db, function(err) { console.log("DB Error: " + err) });}
 
 /*
   for the $tag command
@@ -193,4 +217,43 @@ function getPost(tag){
         return posts[0];
     });
 }
+/*
+  run a function and check if it can be run again
 
+  A cooldown is written like 
+  {
+      func: "functionName", 
+      timeout: timeAmount, 
+      timestamp: lastRunTime
+  }
+  The timestamp is the timestamp of the last call through cooldown.
+  As the function is called the timeout is checked against the current time.
+  If the timeout is < currentTime + timeout, run the function.
+*/
+function cooldown(funcToCooldown, cooldownTime, identifier){
+    console.log(cooldowns);
+    cd = cooldowns[identifier]
+    
+    if(typeof(cd) == 'undefined'){
+        cooldowns[identifier] = 
+            {
+                func: identifier,
+                timeout: cooldownTime,
+                timestamp: Date.now()
+            };
+        funcToCooldown();
+    } else {
+        console.log(cd);
+        if(typeof(cd) != 'undefined' && cd.timestamp + cd.timeout < Date.now()){
+            funcToCooldown();
+            cooldowns[identifier] = 
+                {
+                    func: identifier,
+                    timeout: cooldownTime,
+                    timestamp: Date.now()
+                };
+        } else {
+            console.log("You're doing that too fast, slow down.");
+        }
+    }
+}
