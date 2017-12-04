@@ -34,42 +34,52 @@ bot.on('ready', function(){
 });
 
 bot.on('message', function(msg){
-    if(msg.content.startsWith("$") && config.channel.includes(msg.channel.name)){
+    if(msg.content.startsWith("$") && config.channel.includes(msg.channel.name) || config.cmdChannel.includes(msg.channel.name)){
         msg.content = msg.content.toLowerCase();
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
         case "$add": // add a tag
-            addTagToDB(command[1], msg.author, function(){
-                writeDBToFile("db/db.json");
-            });
+            if(config.cmdChannel.includes(msg.channel.name)){
+                addTagToDB(command[1], msg.author, function(){
+                    writeDBToFile("db/db.json");
+                });
+            }
             break;
         case "$sub": // subscribe to a tag
-            cooldown(function(){
-                addUserToList(command[1], msg.author);
-                writeDBToFile("db/db.json");
-                msg.channel.send("Subscribed");
-            }, 300, "commandSub");
+            if(config.cmdChannel.includes(msg.channel.name)){
+                cooldown(function(){
+                    addUserToList(command[1], msg.author);
+                    writeDBToFile("db/db.json");
+                    msg.channel.send("Subscribed");
+                }, 300, "commandSub");
+            }
             break;
         case "$tag": // getUsersForTag()
-            var tags = command.slice(1,4);
+            if(config.channel.includes(msg.channel.name)){
+            var tags = command.slice(1);
             cooldown(function(){
                 for(var i=0; i<tags.length; i++){
                     var message = getUsersForTag(tags[i]);
                     msg.channel.send(message);
                 }
             }, 2000, "test");
+            }
             
             break;
         case "$unsub":
-            cooldown(function(){
-                unsubscribeUser(command[1], msg.author);
-            }, 2000, "unsub");
+            if(config.cmdChannel.includes(msg.channel.name)){        
+                cooldown(function(){
+                    unsubscribeUser(command[1], msg.author);
+                }, 2000, "unsub");
+            }
             break;
         case "$list": // DM the list of tags
-            var message = getAllTags();
-            msg.author.createDM().then(function(res){
-                res.send("Tags:\n" + message);
-            });
+            if(config.cmdChannel.includes(msg.channel.name)){
+                var message = getAllTags();
+                msg.author.createDM().then(function(res){
+                    res.send("Tags:\n" + message);
+                });
+            }
             break;
         }
     }
