@@ -14,8 +14,9 @@ const jsonfile = require('jsonfile');
 /*
   testing database
   exists in memory
+  In order for the bot to run, db/db.json must exist.
 */
-var db = [];
+var db = jsonfile.readFileSync("./db/db.json");
 var cooldowns = [];
 
 var booru = new Danbooru.Safebooru();
@@ -56,6 +57,9 @@ bot.on('message', function(msg){
             }, 1000, "commandTag");
             
             break;
+        case "$list": // DM the list of tags
+            var message = getAllTags();
+            msg.author.createDM().send("Tags:\n" + message);
         }
     }
 });
@@ -67,29 +71,46 @@ bot.on('message', function(msg){
   ==MESSAGE CREATION=
   creates a message for the given tag (mentions users from db)
 */
-function createMessageForTag(tag){
-    var tags = db.find(item => item.tag === tag); // get user list
-    try{
-        var users = tags.users;
-    }catch(e){
-        console.log(e);
-        return "Tag does not exist : /";
+
+/*
+  for the $list command
+*/
+function getAllTags(){
+    var msg = "";
+    for(var i=0; i<db.length; i++){
+        msg += db[i].tag + "\n";
     }
-    if(users.length < 1){ // make sure there are users
-        return "There are no users subscribed : /";
-    }
-    var message = "Daily " + tag.split('_')[0] + " "; // get only first name in tag
-    
-    for(var i=0; i<users.length; i++){
-        message += "<@" + users[i] + "> "; // add the tags for users
-    }
-    message += "\n"; // add newline to seperate users from image
-    
-    
-    console.log(message);
-    return message;
-    
+    return msg;
 }
+
+
+/*
+  for the $tag command
+*/
+function getUsersForTag(tag){
+    try{
+        var users = db.find(item => item.tag === tag).users; // get the tag list
+    } catch (e){
+        console.log(e);
+        return "No users subscribed : /";
+    }
+
+    if(users == undefined){ 
+        console.log("No users subscribed : /");
+        return "No users subscribed : /";
+    }
+
+    // capitalize the name of the tag
+    var message = tag.charAt (0).toUpperCase() + tag.slice(1) + "\n";
+    if(users.length < 1) return; // make sure there are users subscribed
+
+    for(var i=0; i<users.length; i++){
+        message += "<@" + users[i] + "> "; // tag every user in the list
+    }
+    
+    return message;
+}
+
 
 /*
   == DATABASE ==
@@ -165,33 +186,9 @@ function addUserToList(tag, user){
   path for backup DB: db/backup.json
 */
 function writeDBToFile(path){
-    jsonfile.writeFile(path, db, function(err) { console.log("DB Error: " + err) });}
-
-/*
-  for the $tag command
-*/
-function getUsersForTag(tag){
-    try{
-        var users = db.find(item => item.tag === tag).users; // get the tag list
-    } catch (e){
-        console.log(e);
-        return "No users subscribed : /";
-    }
-
-    if(users == undefined){ 
-        console.log("No users subscribed : /");
-        return "No users subscribed : /";
-    }
-
-    // capitalize the name of the tag
-    var message = tag.charAt (0).toUpperCase() + tag.slice(1) + "\n";
-    if(users.length < 1) return; // make sure there are users subscribed
-
-    for(var i=0; i<users.length; i++){
-        message += "<@" + users[i] + "> "; // tag every user in the list
-    }
-    
-    return message;
+    jsonfile.writeFile(path, db, function(err) {
+        console.log("DB Error: " + err);
+    });
 }
 
 /*==CHECKING FUNCTIONS==*/
