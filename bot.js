@@ -156,7 +156,7 @@ function getUsersForTag(tag){
 */
 
 function addTagToDB(tag, user, callback){
-    if(user.id == config.owner){ // TODO: checking to see if the tag exists
+    if(config.owner.includes(user.id)){ // TODO: checking to see if the tag exists
         db.push({"tag":tag, "hashes":[],"users":[]});
         callback("db/db.json");
     } else {
