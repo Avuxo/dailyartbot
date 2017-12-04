@@ -34,37 +34,48 @@ bot.on('ready', function(){
 });
 
 bot.on('message', function(msg){
-    if(msg.content.startsWith("$") && msg.channel.name == config.channel){
+    if(msg.content.startsWith("$") && config.channel.includes(msg.channel.name)){
+        msg.content = msg.content.toLowerCase();
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
         case "$add": // add a tag
-            addTagToDB(command[1], msg.author);
+            addTagToDB(command[1], msg.author, function(){
+                writeDBToFile("db/db.json");
+            });
             break;
         case "$sub": // subscribe to a tag
             cooldown(function(){
                 addUserToList(command[1], msg.author);
+                writeDBToFile("db/db.json");
+                msg.channel.send("Subscribed");
             }, 300, "commandSub");
             break;
         case "$tag": // getUsersForTag()
-            var tags = command.slice(1);
+            var tags = command.slice(1,4);
             cooldown(function(){
-                if(tags.length < 3){ // only 3 tags lole (this is done to try to ensure that the message isn't >2000 characters)
-                    for(var tag in tags){
-                        var message = getUsersForTag(tag);
-                        msg.channel.send(message);
-                    }
+                for(var i=0; i<tags.length; i++){
+                    var message = getUsersForTag(tags[i]);
+                    msg.channel.send(message);
                 }
-            }, 1000, "commandTag");
+            }, 2000, "test");
             
+            break;
+        case "$unsub":
+            cooldown(function(){
+                unsubscribeUser(command[1], msg.author);
+            }, 2000, "unsub");
             break;
         case "$list": // DM the list of tags
             var message = getAllTags();
-            msg.author.createDM().send("Tags:\n" + message);
+            msg.author.createDM().then(function(res){
+                res.send("Tags:\n" + message);
+            });
+            break;
         }
     }
 });
 
-//bot.login(config.token);
+bot.login(config.token);
 
 
 /*
@@ -95,6 +106,10 @@ function getUsersForTag(tag){
         return "No users subscribed : /";
     }
 
+    if(users.length === 0){
+        return "No users subscribed : /";
+    }
+    
     if(users == undefined){ 
         console.log("No users subscribed : /");
         return "No users subscribed : /";
@@ -130,9 +145,10 @@ function getUsersForTag(tag){
   author is passed to check if the user is admin
 */
 
-function addTagToDB(tag, user){
-    if(true || user.id == config.owner){ // TODO: checking to see if the tag exists
+function addTagToDB(tag, user, callback){
+    if(user.id == config.owner){ // TODO: checking to see if the tag exists
         db.push({"tag":tag, "hashes":[],"users":[]});
+        callback("db/db.json");
     } else {
         console.log("User is not authenticated for this action")
     }
@@ -157,13 +173,7 @@ function test(){
 
 
     var tags = ["hitagi", "asuna", "Togame"];
-    cooldown(function(){
-        for(var i=0; i<3; i++){
-            var message = getUsersForTag(tags[i]);
-            //msg.channel.send(message);
-            console.log(message);
-        }
-    }, 2000, "test");
+    
    
 }
 
@@ -180,6 +190,19 @@ function addUserToList(tag, user){
         console.log(exception);
     }
 }
+
+function unsubscribeUser(tag, user){
+    try{
+        let users = db.find(item => item.tag == tag).users;
+        let index = users.indexOf(user.id);
+        if(index > -1){
+            users.splice(index, 1);
+        }
+    } catch(exception) {
+        console.log(exception);
+    }
+}
+
 /*
   Write the database to a file (save)
   path for main DB: db/db.json
