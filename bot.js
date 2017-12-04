@@ -110,7 +110,7 @@ function createMessageForTag(tag){
 */
 
 function addTagToDB(tag, user){
-    if(user.id == config.owner){ // TODO: checking to see if the tag exists
+    if(true || user.id == config.owner){ // TODO: checking to see if the tag exists
         db.push({"tag":tag, "hashes":[],"users":[]});
     } else {
         console.log("User is not authenticated for this action")
@@ -127,7 +127,7 @@ function test(){
     addTagToDB("emilia", 2);
     addTagToDB("Togame", 2);
 
-    for(var i=0; i<12; i++){
+    for(var i=0; i<2; i++){
         addUserToList("hitagi", {id: "98109283019283" + i});
         addUserToList("asuna", {id: "98109283019283" + i});
         addUserToList("emilia", {id: "98109283019283" + i});
@@ -151,8 +151,10 @@ function test(){
 */
 function addUserToList(tag, user){
     try{
-        if(db.find(item => item.tag === tag).users.indexOf(user) > -1)
+        if(!db.find(item => item.tag === tag).users.includes(user.id))
             db.find(item => item.tag === tag).users.push(user.id);
+        else
+            console.log("User already subscribed.");
     }catch(exception){
         console.log(exception);
     }
@@ -206,17 +208,6 @@ function userSubscribed(tag, user){
     return false;
 }
 
-/*==DANBOORU FUNCTIONS==*/
-
-function getPost(tag){
-    booru.posts({
-        limit: 1,
-        tags: tag,
-        random: true
-    }).then(async posts => {
-        return posts[0];
-    });
-}
 /*
   run a function and check if it can be run again
 
@@ -231,7 +222,6 @@ function getPost(tag){
   If the timeout is < currentTime + timeout, run the function.
 */
 function cooldown(funcToCooldown, cooldownTime, identifier){
-    console.log(cooldowns);
     cd = cooldowns[identifier]
     
     if(typeof(cd) == 'undefined'){
@@ -243,7 +233,6 @@ function cooldown(funcToCooldown, cooldownTime, identifier){
             };
         funcToCooldown();
     } else {
-        console.log(cd);
         if(typeof(cd) != 'undefined' && cd.timestamp + cd.timeout < Date.now()){
             funcToCooldown();
             cooldowns[identifier] = 
