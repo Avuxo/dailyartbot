@@ -47,11 +47,9 @@ bot.on('message', function(msg){
             break;
         case "$sub": // subscribe to a tag
             if(config.cmdChannel.includes(msg.channel.name)){
-                cooldown(function(){
-                    addUserToList(command[1], msg.author);
-                    writeDBToFile("db/db.json");
-                    msg.channel.send("Subscribed");
-                }, 300, "commandSub");
+                addUserToList(command[1], msg.author);
+                writeDBToFile("db/db.json");
+                msg.channel.send("Subscribed");
             }
             break;
         case "$tag": // getUsersForTag()
