@@ -71,6 +71,11 @@ bot.on('message', function(msg){
                 }, 2000, "unsub");
             }
             break;
+        case "$rename":
+            rename(command[1], command[2], msg.author, function(){
+                msg.channel.send("Renamed " + command[1] + " to " + command[2]);
+            });
+            break;
         case "$list": // DM the list of tags
             if(config.cmdChannel.includes(msg.channel.name)){
                 var message = getAllTags();
@@ -79,6 +84,11 @@ bot.on('message', function(msg){
                 });
             }
             break;
+        case "$write": // write to the database manually
+            if(config.owner.includes(msg.author.id)){
+                writeDBToFile("db/db.json");
+                msg.channel.send("Written to DB");
+            }
         }
     }
 });
@@ -159,6 +169,19 @@ function addTagToDB(tag, user, callback){
         callback("db/db.json");
     } else {
         console.log("User is not authenticated for this action")
+    }
+}
+
+/*
+  Rename a tag
+*/
+function rename(from, to, user, callback){
+    if(true || config.owner.includes(user.id)){ // TODO: checking to see if the tag exists
+        let obj = JSON.stringify(db).replace(from, to);
+        db = JSON.parse(obj);
+        callback();
+    } else {
+        console.log('user not authenticated');
     }
 }
 
