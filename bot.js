@@ -176,7 +176,7 @@ function addTagToDB(tag, user, callback){
   Rename a tag
 */
 function rename(from, to, user, callback){
-    if(true || config.owner.includes(user.id)){ // TODO: checking to see if the tag exists
+    if(config.owner.includes(user.id)){ // TODO: checking to see if the tag exists
         let obj = JSON.stringify(db).replace(from, to);
         db = JSON.parse(obj);
         callback();
