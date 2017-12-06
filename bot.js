@@ -1,11 +1,20 @@
 const readline = require('readline');
 const discord = require('discord.js');
 const bot = new discord.Client();
-/*{
+/*
+  There can be more than one owner, and more than one channel.
+  The cmdChannel is used for all commands except for $tag.
+  $tag operates in the channels listed in `channel`.
+  There is only one command channel due to its original use. This is fixed trivially.
+
+  {
     "token" : "botTokenFromDiscord",
-    "owner" : "ownerOfBotsUserID",
-    "channel" : "nameOfChannel"
-  }*/
+    "owner" : ["ownerOfBotsUserID"],
+    "channel" : ["nameOfChannel"],
+    "cmdChannel" : "nameOfChannelForCommands"
+  }
+
+*/
 const config = require('./config.json');
 const Danbooru = require('danbooru');
 const schedule = require('node-schedule');
@@ -34,14 +43,16 @@ bot.on('ready', function(){
 });
 
 bot.on('message', function(msg){
-    if(msg.content.startsWith("$") && config.channel.includes(msg.channel.name) || config.cmdChannel.includes(msg.channel.name)){
+    if(msg.content.startsWith("$") &&
+       config.channel.includes(msg.channel.name) ||
+       config.cmdChannel.includes(msg.channel.name)){
         msg.content = msg.content.toLowerCase();
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
         case "$add": // add a tag
             if(config.cmdChannel.includes(msg.channel.name)){
                 addTagToDB(command[1], msg.author, function(){
-                    writeDBToFile("db/db.json");
+                    writeDBToFile("db/db.json"); // write the new DB with the tag
                 });
             }
             break;
@@ -54,8 +65,8 @@ bot.on('message', function(msg){
             break;
         case "$tag": // getUsersForTag()
             if(config.channel.includes(msg.channel.name)){
-            var tags = command.slice(1);
-            cooldown(function(){
+            var tags = command.slice(1); // convert to list of tokens
+            cooldown(function(){ // only executable once every 2 seconds
                 for(var i=0; i<tags.length; i++){
                     var message = getUsersForTag(tags[i]);
                     msg.channel.send(message);
@@ -148,12 +159,12 @@ function getUsersForTag(tag){
 /*
   == DATABASE ==
   The database operates under chunks of the following data
-  tag: // the safebooru tag that is being pulled from
+  - tag // the safebooru tag that is being pulled from
   - hash[] // array of hashes of posted art
   - user[] // array of subscribed users
 
   EX:
-  senjougahara_hitagi: // assume this is a safebooru tag
+  - senjougahara_hitagi // assume this is a safebooru tag
   - [F39019019239, 5C9028045203] // assume these are MD5 hashes of files
   - [029349023490] // assume this is a userID
 */
@@ -188,6 +199,7 @@ function rename(from, to, user, callback){
 /*
   RL test.
   Only to be called from readline as a test (userIDs are random).
+  This function is not functionally in use except for in the process of setting up a testing database.
 */
 function test(){
     addTagToDB("hitagi", 2);
@@ -213,6 +225,7 @@ function test(){
 */
 function addUserToList(tag, user){
     try{
+        // is the user not in the list?
         if(!db.find(item => item.tag === tag).users.includes(user.id))
             db.find(item => item.tag === tag).users.push(user.id);
         else
@@ -221,9 +234,12 @@ function addUserToList(tag, user){
         console.log(exception);
     }
 }
-
+/*
+  Unsubscribe a given user from a give tag
+*/
 function unsubscribeUser(tag, user){
     try{
+        // find all the users subscribed to a tag
         let users = db.find(item => item.tag == tag).users;
         let index = users.indexOf(user.id);
         if(index > -1){
@@ -274,25 +290,29 @@ function userSubscribed(tag, user){
 */
 function cooldown(funcToCooldown, cooldownTime, identifier){
     cd = cooldowns[identifier]
-    
+
+    // does this cooldown already exist?
     if(typeof(cd) == 'undefined'){
+        // create a new cooldown for the function
         cooldowns[identifier] = 
             {
                 func: identifier,
                 timeout: cooldownTime,
                 timestamp: Date.now()
             };
-        funcToCooldown();
+        funcToCooldown(); // call the function that's being cooled down.
     } else {
+        // if the cooldown exists in the list and the cooldown time has elapsed.
         if(typeof(cd) != 'undefined' && cd.timestamp + cd.timeout < Date.now()){
-            funcToCooldown();
+            funcToCooldown(); // call the cooldowned function
+            // add the cooldown to the list
             cooldowns[identifier] = 
                 {
                     func: identifier,
                     timeout: cooldownTime,
                     timestamp: Date.now()
                 };
-        } else {
+        } else { // time has not yet elapsed
             console.log("You're doing that too fast, slow down.");
         }
     }
