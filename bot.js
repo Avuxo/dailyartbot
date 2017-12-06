@@ -1,6 +1,7 @@
 const readline = require('readline');
 const discord = require('discord.js');
 const bot = new discord.Client();
+const jsonfile = require('jsonfile');
 /*
   There can be more than one owner, and more than one channel.
   The cmdChannel is used for all commands except for $tag.
@@ -16,37 +17,33 @@ const bot = new discord.Client();
 
 */
 const config = require('./config.json');
-const Danbooru = require('danbooru');
-const schedule = require('node-schedule');
-const jsonfile = require('jsonfile');
 
 /*
-  testing database
-  exists in memory
+  Load the database into memory (restores the state of the previous instance)
   In order for the bot to run, db/db.json must exist.
 */
 var db = jsonfile.readFileSync("./db/db.json");
 var cooldowns = [];
-
-var booru = new Danbooru.Safebooru();
 
 /*setup readline*/
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
-/*read and evaluate input*/
+
+/*input REPL*/
 rl.on('line', function(input){ eval(input); });
 
 bot.on('ready', function(){
     console.log('ready');
 });
 
+/*listen for messages*/
 bot.on('message', function(msg){
-    if(msg.content.startsWith("$") &&
-       config.channel.includes(msg.channel.name) ||
-       config.cmdChannel.includes(msg.channel.name)){
-        msg.content = msg.content.toLowerCase();
+    if(msg.content.startsWith("$") && // is it a command?
+       config.channel.includes(msg.channel.name) || // is it in the msg channel?
+       config.cmdChannel.includes(msg.channel.name)){ // is it in the command channel?
+        msg.content = msg.content.toLowerCase(); // lowercase the input to stop case-sensitivity.
         var command = msg.content.split(" "); // split the string by spaces
         switch(command[0]){
         case "$add": // add a tag
@@ -104,28 +101,28 @@ bot.on('message', function(msg){
     }
 });
 
-bot.login(config.token);
+//bot.login(config.token);
 
 
-/*
-  ==MESSAGE CREATION=
-  creates a message for the given tag (mentions users from db)
-*/
+/* ==MESSAGE CREATION= */
 
 /*
-  for the $list command
+  Get a list of all existing tags (for the $tag command)
 */
 function getAllTags(){
-    var msg = "";
+    var tags = [];
     for(var i=0; i<db.length; i++){
-        msg += db[i].tag + "\n";
+        tags.push(db[i].tag);
     }
+    tags.sort(); // sort alphabetically
+
+    var msg = tags.join('\n'); // separate by newline
     return msg;
 }
 
 
 /*
-  for the $tag command
+  get the message for a tag ($tag)
 */
 function getUsersForTag(tag){
     try{
@@ -160,7 +157,7 @@ function getUsersForTag(tag){
   == DATABASE ==
   The database operates under chunks of the following data
   - tag // the safebooru tag that is being pulled from
-  - hash[] // array of hashes of posted art
+  - hash[] // this is superfluous and exists from a past version of the bot. It exists for the current version because it would be a problem to remove it from the production database.
   - user[] // array of subscribed users
 
   EX:
@@ -195,31 +192,6 @@ function rename(from, to, user, callback){
         console.log('user not authenticated');
     }
 }
-
-/*
-  RL test.
-  Only to be called from readline as a test (userIDs are random).
-  This function is not functionally in use except for in the process of setting up a testing database.
-*/
-function test(){
-    addTagToDB("hitagi", 2);
-    addTagToDB("asuna", 2);
-    addTagToDB("emilia", 2);
-    addTagToDB("Togame", 2);
-
-    for(var i=0; i<2; i++){
-        addUserToList("hitagi", {id: "98109283019283" + i});
-        addUserToList("asuna", {id: "98109283019283" + i});
-        addUserToList("emilia", {id: "98109283019283" + i});
-        addUserToList("Togame", {id:"98109283019283" + i});
-    }
-
-
-    var tags = ["hitagi", "asuna", "Togame"];
-    
-   
-}
-
 /*
   add a given user to the subscription list of a given girl
 */
@@ -259,20 +231,6 @@ function writeDBToFile(path){
     jsonfile.writeFile(path, db, function(err) {
         console.log("DB Error: " + err);
     });
-}
-
-/*==CHECKING FUNCTIONS==*/
-/*
-  returns true if tag is in database of tags added
-  returns false if tag is not in database of tags
-*/
-function tagInDB(tag){
-    return false; // returns false for now. TODO: implement properly
-}
-
-// check if the user is already subscribed to a given tag
-function userSubscribed(tag, user){
-    return false;
 }
 
 /*
