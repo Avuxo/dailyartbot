@@ -32,14 +32,14 @@ const rl = readline.createInterface({
 });
 
 /*input REPL*/
-rl.on('line', function(input){ eval(input); });
+rl.on('line', (input) => { eval(input); });
 
-bot.on('ready', function(){
+bot.on('ready', () => {
     console.log('ready');
 });
 
 /*listen for messages*/
-bot.on('message', function(msg){
+bot.on('message', (msg) => {
     if(msg.content.startsWith("$") && // is it a command?
        config.channel.includes(msg.channel.name) || // is it in the msg channel?
        config.cmdChannel.includes(msg.channel.name)){ // is it in the command channel?
@@ -48,14 +48,14 @@ bot.on('message', function(msg){
         switch(command[0]){
         case "$add": // add a tag
             if(config.cmdChannel.includes(msg.channel.name)){
-                addTagToDB(command[1], msg.author, function(){
+                addTagToDB(command[1], msg.author, () => {
                     writeDBToFile("db/db.json"); // write the new DB with the tag
                 });
             }
             break;
         case "$sub": // subscribe to a tag
             if(config.cmdChannel.includes(msg.channel.name)){
-                addUserToList(command[1], msg.author, function(res){
+                addUserToList(command[1], msg.author, (res) => {
                     writeDBToFile("db/db.json");
                     msg.channel.send(res);
                 });
@@ -65,7 +65,7 @@ bot.on('message', function(msg){
         case "$tag": // getUsersForTag()
             if(config.channel.includes(msg.channel.name)){
             var tags = command.slice(1); // convert to list of tokens
-            cooldown(function(){ // only executable once every 2 seconds
+            cooldown( () => { // only executable once every 2 seconds
                 for(var i=0; i<tags.length; i++){
                     var message = getUsersForTag(tags[i]);
                     msg.channel.send(message);
@@ -76,22 +76,22 @@ bot.on('message', function(msg){
             break;
         case "$unsub":
             if(config.cmdChannel.includes(msg.channel.name)){        
-                cooldown(function(){
-                    unsubscribeUser(command[1], msg.author, function(res){
+                cooldown( () => {
+                    unsubscribeUser(command[1], msg.author, (res) => {
                         msg.channel.send(res);
                     });
                 }, 2000, "unsub");
             }
             break;
         case "$rename":
-            rename(command[1], command[2], msg.author, function(){
+            rename(command[1], command[2], msg.author, () => {
                 msg.channel.send("Renamed " + command[1] + " to " + command[2]);
             });
             break;
         case "$list": // DM the list of tags
             if(config.cmdChannel.includes(msg.channel.name)){
                 var message = getAllTags();
-                msg.author.createDM().then(function(res){
+                msg.author.createDM().then( (res) => {
                     res.send("Tags:\n" + message);
                 });
             }
@@ -243,7 +243,7 @@ function unsubscribeUser(tag, user, callback){
   path for backup DB: db/backup.json
 */
 function writeDBToFile(path){
-    jsonfile.writeFile(path, db, function(err) {
+    jsonfile.writeFile(path, db, (err) => {
         console.log("DB Error: " + err);
     });
 }
