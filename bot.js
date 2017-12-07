@@ -55,9 +55,11 @@ bot.on('message', function(msg){
             break;
         case "$sub": // subscribe to a tag
             if(config.cmdChannel.includes(msg.channel.name)){
-                addUserToList(command[1], msg.author);
-                writeDBToFile("db/db.json");
-                msg.channel.send("Subscribed");
+                addUserToList(command[1], msg.author, function(res){
+                    writeDBToFile("db/db.json");
+                    msg.channel.send(res);
+                });
+                
             }
             break;
         case "$tag": // getUsersForTag()
@@ -75,7 +77,9 @@ bot.on('message', function(msg){
         case "$unsub":
             if(config.cmdChannel.includes(msg.channel.name)){        
                 cooldown(function(){
-                    unsubscribeUser(command[1], msg.author);
+                    unsubscribeUser(command[1], msg.author, function(res){
+                        msg.channel.send(res);
+                    });
                 }, 2000, "unsub");
             }
             break;
@@ -101,7 +105,7 @@ bot.on('message', function(msg){
     }
 });
 
-//bot.login(config.token);
+bot.login(config.token);
 
 
 /* ==MESSAGE CREATION= */
@@ -195,29 +199,40 @@ function rename(from, to, user, callback){
 /*
   add a given user to the subscription list of a given girl
 */
-function addUserToList(tag, user){
+function addUserToList(tag, user, callback){
     try{
         // is the user not in the list?
-        if(!db.find(item => item.tag === tag).users.includes(user.id))
+        if(!db.find(item => item.tag === tag).users.includes(user.id)){
             db.find(item => item.tag === tag).users.push(user.id);
-        else
-            console.log("User already subscribed.");
+            callback("Subscribed.");
+        }else{
+            callback("User already subscribed.");
+        }
     }catch(exception){
+        // TODO: tag all bot owners.
+        callback("An error occured while subscribing.");
         console.log(exception);
     }
 }
 /*
   Unsubscribe a given user from a give tag
 */
-function unsubscribeUser(tag, user){
+function unsubscribeUser(tag, user, callback){
     try{
         // find all the users subscribed to a tag
         let users = db.find(item => item.tag == tag).users;
         let index = users.indexOf(user.id);
         if(index > -1){
             users.splice(index, 1);
+            callback("Unsubscribed.");
+        } else {
+            callback("User not subscribed.");
         }
+
     } catch(exception) {
+        //shh, dont tell the user there was an error...
+        //for real, this is done because if a tag doesn't exist it raises an exception.
+        callback("User not subscribed.");
         console.log(exception);
     }
 }
