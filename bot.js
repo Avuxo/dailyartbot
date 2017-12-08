@@ -210,7 +210,7 @@ function addUserToList(tag, user, callback){
         }
     }catch(exception){
         // TODO: tag all bot owners.
-        callback("An error occured while subscribing.");
+        callback("Tag does not exist.");
         console.log(exception);
     }
 }
