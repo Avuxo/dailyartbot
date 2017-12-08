@@ -62,6 +62,15 @@ bot.on('message', (msg) => {
                 
             }
             break;
+        case "$subs": // get a list of subscribed tags
+            if(config.cmdChannel.includes(msg.channel.name)){
+                let tags = getSubscriptions(msg.author);
+                msg.author.createDM().then( (res) => {
+                    res.send(tags);
+                });
+            }
+            
+            break;
         case "$tag": // getUsersForTag()
             if(config.channel.includes(msg.channel.name)){
             var tags = command.slice(1); // convert to list of tokens
@@ -127,7 +136,7 @@ function getAllTags(){
 
 /*
   get the message for a tag ($tag)
-*/
+v*/
 function getUsersForTag(tag){
     try{
         var users = db.find(item => item.tag === tag).users; // get the tag list
@@ -234,6 +243,29 @@ function unsubscribeUser(tag, user, callback){
         //for real, this is done because if a tag doesn't exist it raises an exception.
         callback("User not subscribed.");
         console.log(exception);
+    }
+}
+
+/*
+  Get the list of tags a user is subscribed to
+*/
+function getSubscriptions(user){
+    try{
+        // get all tags where the user is the same as the argument
+        let totalTags = db.filter(item => item.users.includes(user.id));
+
+        let tags = [];
+        for(var i=0; i<totalTags.length; i++){
+            tags.push(totalTags[i].tag);
+        }
+        tags.sort(); // sort alphabetically
+        
+        let msg = tags.join('\n'); // separate by newline
+        
+        return "Subscribed tags:\n" + msg;
+    } catch(e){
+        return "Not subscribed to any tags.";
+        console.log(e);
     }
 }
 
